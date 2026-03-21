@@ -8,24 +8,39 @@ class AppTheme {
   final AppThemeMode mode;
   final String fontFamily;
 
+  // Твой главный малиновый цвет
+  static const Color raspberryColor = Color(0xFFE91E63);
+
   ThemeData lightTheme(ColorScheme? lightColorScheme) {
-    final ColorScheme scheme = lightColorScheme ?? ColorScheme.fromSeed(seedColor: const Color(0xFF293CA0));
+    // Генерируем всю палитру из малинового цвета
+    final ColorScheme scheme = lightColorScheme ?? ColorScheme.fromSeed(seedColor: raspberryColor);
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
       fontFamily: fontFamily,
+      // Настройка кнопок и элементов
+      appBarTheme: const AppBarTheme(
+        centerTitle: true,
+        elevation: 0,
+      ),
       extensions: const <ThemeExtension<dynamic>>{ConnectionButtonTheme.light},
     );
   }
 
   ThemeData darkTheme(ColorScheme? darkColorScheme) {
+    // Генерируем темную малиновую палитру
     final ColorScheme scheme =
-        darkColorScheme ?? ColorScheme.fromSeed(seedColor: const Color(0xFF293CA0), brightness: Brightness.dark);
+        darkColorScheme ?? ColorScheme.fromSeed(seedColor: raspberryColor, brightness: Brightness.dark);
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: mode.trueBlack ? Colors.black : scheme.background,
+      // Если включен режим "True Black", фон будет чисто черным, иначе — темно-малиновым
+      scaffoldBackgroundColor: mode.trueBlack ? Colors.black : scheme.surface,
       fontFamily: fontFamily,
+      appBarTheme: const AppBarTheme(
+        centerTitle: true,
+        elevation: 0,
+      ),
       extensions: const <ThemeExtension<dynamic>>{ConnectionButtonTheme.light},
     );
   }
@@ -37,10 +52,11 @@ class AppTheme {
       AppThemeMode.dark => true,
       AppThemeMode.black => true,
     };
-    final def = CupertinoThemeData(brightness: isDark ? Brightness.dark : Brightness.light);
-    // final def = CupertinoThemeData(brightness: Brightness.dark);
+    final def = CupertinoThemeData(
+      brightness: isDark ? Brightness.dark : Brightness.light,
+      primaryColor: raspberryColor, // Основной цвет для iOS-элементов
+    );
 
-    // return def;
     final defaultMaterialTheme = isDark ? darkTheme(darkColorScheme) : lightTheme(lightColorScheme);
     return MaterialBasedCupertinoThemeData(
       materialTheme: defaultMaterialTheme.copyWith(
