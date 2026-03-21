@@ -1,4 +1,3 @@
-
 plugins { 
     id "com.android.application" 
     id "org.jetbrains.kotlin.android" 
@@ -20,7 +19,6 @@ wire {
     }
 }
 
-
 def localProperties = new Properties()
 def localPropertiesFile = rootProject.file('local.properties')
 if (localPropertiesFile.exists()) {
@@ -29,26 +27,10 @@ if (localPropertiesFile.exists()) {
     }
 }
 
-boolean hasKeyStore = false
+// Принудительно отключаем поиск ключей, чтобы избежать ошибки KeytoolException
+boolean hasKeyStore = false 
 
-def keystoreProperties = new Properties()
-def keystorePropertiesFile = rootProject.file('key.properties')
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-    hasKeyStore = true
-} else {
-    println "+++"
-    println "No keystore defined. The app will not be signed."
-    println "Create a android/key.properties file with the following properties:"
-    println "storePassword"
-    println "keyPassword"
-    println "keyAlias"
-    println "storeFile"
-    println "+++"
-}
-
-def flutterVersionCode = localProperties.getProperty('flutter.versionCode')?: '1'
-
+def flutterVersionCode = localProperties.getProperty('flutter.versionCode') ?: '1'
 def flutterVersionName = localProperties.getProperty('flutter.versionName') ?: '1.0'
 
 android {
@@ -83,33 +65,27 @@ android {
         abi {
             enable true
             reset()
-            //noinspection ChromeOsAbiSupport
             include "x86_64", "armeabi-v7a", "arm64-v8a"
-
             universalApk true
         }
     }
 
-    if (hasKeyStore) {
-        signingConfigs {
-            release {
-                keyAlias keystoreProperties['keyAlias']
-                keyPassword keystoreProperties['keyPassword']
-                storeFile file(keystoreProperties['storeFile'])
-                storePassword keystoreProperties['storePassword']
-            }
+    // Блок подписи пустой, чтобы GitHub не ругался на формат ключей
+    signingConfigs {
+        debug {
+            // Используем стандартные настройки отладки
         }
     }
 
     buildTypes {
         release {
-            if (hasKeyStore) {
-                signingConfig signingConfigs.release
-            } else {
-                signingConfig signingConfigs.debug
-            }
+            // ПРИНУДИТЕЛЬНО используем debug подпись для Malinarium
+            signingConfig signingConfigs.debug 
+            
+            minifyEnabled false
+            shrinkResources false
+            
             ndk {
-                //noinspection ChromeOsAbiSupport
                 abiFilters "x86_64", "armeabi-v7a", "arm64-v8a"
                 debugSymbolLevel 'FULL'
             }
@@ -120,7 +96,6 @@ android {
         viewBinding true
         aidl true
     }
-
 }
 
 android.applicationVariants.all { variant ->
@@ -135,21 +110,13 @@ flutter {
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
-
     implementation 'com.google.code.gson:gson:2.11.0'
     implementation 'androidx.core:core-ktx:1.16.0'
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.8.7'
     implementation "androidx.compose.ui:ui:1.7.8"
     implementation("com.squareup.wire:wire-grpc-client:5.3.1")
-
     implementation 'io.grpc:grpc-okhttp:1.64.0'
     implementation 'io.grpc:grpc-protobuf-lite:1.64.0'
     implementation 'io.grpc:grpc-stub:1.64.0'
-//    protoPath(project(':hiddify_api'))
-//    implementation project(':hiddify_api')
-
-
-
-
 }
