@@ -13,8 +13,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
@@ -36,20 +38,17 @@ jobs:
             os: macos-15
     runs-on: ${{ matrix.os }}
     steps:
-      # 1. Скачиваем ТОЛЬКО основной репозиторий (без сабмодулей)
       - name: Checkout
         uses: actions/checkout@v4
         with:
           persist-credentials: false
 
-      # 2. Магия: заменяем SSH на HTTPS глобально
       - name: Fix Git SSH to HTTPS
         shell: bash
         run: |
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
 
-      # 3. Теперь скачиваем сабмодули (они пойдут через HTTPS и не упадут)
       - name: Update submodules
         run: git submodule update --init --recursive
 
