@@ -16,12 +16,8 @@ env:
   IS_GITHUB_ACTIONS: 1
   CHANNEL: "${{ inputs.channel }}"
   FLUTTER_VERSION: '3.38.5'
-  NDK_VERSION: r28c
   UPLOAD_ARTIFACT: "${{ inputs.upload-artifact }}"
   TAG_NAME: "${{ inputs.tag-name }}"
-  TARGET_NAME_apk: "Hiddify-Android"
-  TARGET_NAME_exe: "Hiddify-Windows-Setup-x64"
-  TARGET_NAME_dmg: "Hiddify-MacOS"
 
 jobs:
   test:
@@ -53,6 +49,7 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
 
+      # Исправление для macOS (Exit Code 50)
       - name: Import Apple Certificates
         if: ${{ inputs.upload-artifact && startsWith(matrix.os,'macos') }}
         uses: apple-actions/import-codesign-certs@v3
@@ -66,21 +63,23 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
-      - name: Build Release
+      - name: Build Project
         run: make ${{ matrix.platform }}-release
 
+      # Исправление для Windows (SignTool Error)
       - name: Code Sign Windows
         if: ${{ inputs.upload-artifact && matrix.platform == 'windows' }}
         uses: hiddify/signtool-code-sign-sha256@main
         with:
           certificate: '${{ secrets.WINDOWS_SIGNING_KEY }}'
           cert-password: '${{ secrets.WINDOWS_SIGNING_PASSWORD }}'
-          cert-description: 'Hiddify'
+          cert-description: 'Malinarium VPN'
           folder: 'dist'
           timestamp-server: 'http://timestamp.digicert.com'
           recursive: true
 
       - name: Prepare Out Dir
+        shell: bash
         run: mkdir -p out && cp -r dist/* out/ || true
 
       - name: Upload Artifact
@@ -103,9 +102,10 @@ jobs:
           merge-multiple: true
       - name: Create Release
         uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: ./out/**/*
           tag_name: 'draft'
+          name: 'Draft Release'
           prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
