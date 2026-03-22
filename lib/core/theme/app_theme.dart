@@ -8,17 +8,20 @@ class AppTheme {
   final AppThemeMode mode;
   final String fontFamily;
 
-  // Твой главный малиновый цвет
-  static const Color raspberryColor = Color(0xFFE91E63);
+  // Твоя киберпанк-палитра Malinarium
+  static const Color neonFuchsia = Color(0xFFFF00FF); // Яркая кибер-малина
+  static const Color neonCyan = Color(0xFF00FFFF);    // Неоновый циан для акцентов
+  static const Color deepBlack = Color(0xFF09090B);   // Глубокий темный фон (почти космос)
+  static const Color panelGray = Color(0xFF161618);   // Цвет панелей и карточек
 
   ThemeData lightTheme(ColorScheme? lightColorScheme) {
-    // Генерируем всю палитру из малинового цвета
-    final ColorScheme scheme = lightColorScheme ?? ColorScheme.fromSeed(seedColor: raspberryColor);
+    // Оставляем светлую тему на случай, если кто-то переключит,
+    // но делаем её в фирменных малиновых тонах.
+    final ColorScheme scheme = lightColorScheme ?? ColorScheme.fromSeed(seedColor: neonFuchsia);
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
       fontFamily: fontFamily,
-      // Настройка кнопок и элементов
       appBarTheme: const AppBarTheme(
         centerTitle: true,
         elevation: 0,
@@ -28,18 +31,33 @@ class AppTheme {
   }
 
   ThemeData darkTheme(ColorScheme? darkColorScheme) {
-    // Генерируем темную малиновую палитру
-    final ColorScheme scheme =
-        darkColorScheme ?? ColorScheme.fromSeed(seedColor: raspberryColor, brightness: Brightness.dark);
+    // Генерируем настоящую киберпанк-палитру
+    final ColorScheme scheme = darkColorScheme ?? ColorScheme.fromSeed(
+      seedColor: neonFuchsia,
+      brightness: Brightness.dark,
+      primary: neonFuchsia,
+      secondary: neonCyan,
+      surface: panelGray,
+    );
+
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      // Если включен режим "True Black", фон будет чисто черным, иначе — темно-малиновым
-      scaffoldBackgroundColor: mode.trueBlack ? Colors.black : scheme.surface,
+      // Если включен режим "True Black", фон чисто черный, иначе — глубокий техно-черный
+      scaffoldBackgroundColor: mode.trueBlack ? Colors.black : deepBlack,
       fontFamily: fontFamily,
       appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
         centerTitle: true,
         elevation: 0,
+      ),
+      // Стилизация карточек под футуристичные панели с тонкой неоновой рамкой
+      cardTheme: CardTheme(
+        color: panelGray,
+        shape: RoundedRectangleBorder(
+          side: const BorderSide(color: neonFuchsia, width: 0.3), // Легкое свечение
+          borderRadius: BorderRadius.circular(12),
+        ),
       ),
       extensions: const <ThemeExtension<dynamic>>{ConnectionButtonTheme.light},
     );
@@ -54,7 +72,7 @@ class AppTheme {
     };
     final def = CupertinoThemeData(
       brightness: isDark ? Brightness.dark : Brightness.light,
-      primaryColor: raspberryColor, // Основной цвет для iOS-элементов
+      primaryColor: neonFuchsia, // Фирменный цвет для iOS-элементов
     );
 
     final defaultMaterialTheme = isDark ? darkTheme(darkColorScheme) : lightTheme(lightColorScheme);

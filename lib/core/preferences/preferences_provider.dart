@@ -13,18 +13,27 @@ part 'preferences_provider.g.dart';
 
 @Riverpod(keepAlive: true)
 Future<SharedPreferences> sharedPreferences(Ref ref) async {
-  final logger = Loggy("preferences");
+  // Переименовали тег логгера для Malinarium
+  final logger = Loggy("malinarium_prefs"); 
   SharedPreferences? sharedPreferences;
 
-  logger.debug("initializing preferences");
+  logger.debug("initializing malinarium preferences");
   try {
-    if (PlatformUtils.isWindows && Environment.isPortable) SharedPreferences.setPrefix('portable.');
+    // МАКСИМАЛЬНЫЙ РЕБРЕНДИНГ: Устанавливаем уникальный префикс для базы данных настроек.
+    // Это изолирует данные твоего приложения от оригинального Hiddify.
+    if (PlatformUtils.isWindows && Environment.isPortable) {
+      SharedPreferences.setPrefix('malinarium_portable.');
+    } else {
+      SharedPreferences.setPrefix('malinarium.');
+    }
+    
     sharedPreferences = await SharedPreferences.getInstance();
   } catch (e) {
-    logger.error("error initializing preferences", e);
+    logger.error("error initializing malinarium preferences", e);
     if (!Platform.isWindows && !Platform.isLinux) {
       rethrow;
     }
+    // Решение специфической проблемы Flutter с доступом к файлам в Windows/Linux
     // https://github.com/flutter/flutter/issues/89211
     final directory = await getApplicationSupportDirectory();
     final file = File(p.join(directory.path, 'shared_preferences.json'));
