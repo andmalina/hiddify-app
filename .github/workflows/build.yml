@@ -51,6 +51,10 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
 
+      - name: Install Make on Windows
+        if: matrix.os == 'windows-latest'
+        run: choco install make
+
       - name: Import Apple Certificates
         if: ${{ inputs.upload-artifact && startsWith(matrix.os,'macos') }}
         uses: apple-actions/import-codesign-certs@v3
@@ -62,9 +66,11 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
           cache: true
 
       - name: Build Project
+        shell: bash
         run: make ${{ matrix.platform }}-release
 
       - name: Code Sign Windows
@@ -85,7 +91,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.platform }}
+          name: build-${{ matrix.platform }}
           path: ./out
           retention-days: 1
 
@@ -93,19 +99,23 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     if: ${{ inputs.upload-artifact }}
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
           path: ./out/
+          pattern: build-*
           merge-multiple: true
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: ./out/**/*
-          tag_name: 'draft'
-          name: 'Draft Release'
+          tag_name: ${{ inputs.tag-name }}
+          name: 'Release ${{ inputs.tag-name }}'
           prerelease: true
+          draft: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

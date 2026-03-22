@@ -28,6 +28,7 @@ env:
 
 jobs:
   run:
+    if: "!contains(github.event.head_commit.message, 'release: version')"
     uses: ./.github/workflows/build.yml
     secrets: inherit
     permissions:
@@ -37,6 +38,5 @@ jobs:
       id-token: write
       attestations: write
       packages: write
-    if: "${{!contains(github.event.head_commit.message, 'release: version')}}"
     with:
       upload-artifact: ${{ github.event_name == 'push' }}
