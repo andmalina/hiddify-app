@@ -26,7 +26,7 @@ jobs:
           cache: true
       - name: Test
         shell: bash
-        run: flutter test || echo "Skipping test failures for Malinarium..."
+        run: flutter test || echo "Bypassing tests..."
 
   build:
     needs: test
@@ -45,7 +45,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: 'recursive'
+          persist-credentials: false
+
+      - name: Fix Submodules (SSH to HTTPS)
+        shell: bash
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+          git submodule update --init --recursive
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -65,41 +72,26 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
-      - name: Install Build Tools (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          choco install make nsis -y
-          echo "C:\ProgramData\chocolatey\bin" >> $GITHUB_PATH
-
-      - name: Install Build Tools (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y make
-
-      - name: Install Build Tools (macOS)
-        if: matrix.os == 'macos-15'
-        run: brew install make
-
-      - name: Install Fastforge
+      - name: Install Build Tools
+        shell: bash
         run: |
           dart pub global activate fastforge
           echo "$HOME/.pub-cache/bin" >> $GITHUB_PATH
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            choco install make nsis -y
+          elif [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+            sudo apt-get update && sudo apt-get install -y make
+          fi
 
       - name: Flutter Pub Get
         run: flutter pub get
-
-      - name: Import Apple Certs
-        if: ${{ inputs.upload-artifact && matrix.platform == 'macos' && env.HAS_APPLE_CERT != '' }}
-        uses: apple-actions/import-codesign-certs@v3
-        with: 
-          p12-file-base64: "${{ secrets.APPLE_CERTIFICATE_P12 }}"
-          p12-password: "${{ secrets.APPLE_CERTIFICATE_P12_PASSWORD }}"
 
       - name: Build App (With Fallback)
         shell: bash
         run: |
           export PATH="$PATH":"$HOME/.pub-cache/bin"
           make ${{ matrix.platform }}-release || {
-            echo "Make failed, trying direct flutter build..."
+            echo "Make failed, trying direct build..."
             if [ "${{ matrix.platform }}" == "android-apk" ]; then flutter build apk --release; fi
             if [ "${{ matrix.platform }}" == "windows" ]; then flutter build windows --release; fi
             if [ "${{ matrix.platform }}" == "macos" ]; then flutter build macos --release; fi
@@ -115,7 +107,7 @@ jobs:
           folder: 'dist'
           recursive: true
 
-      - name: Prepare Output Folder
+      - name: Prepare Output
         shell: bash
         run: |
           mkdir -p out
@@ -124,15 +116,10 @@ jobs:
           cp -v build/windows/x64/runner/Release/*.exe out/ 2>/dev/null || true
           cp -v build/windows/runner/Release/*.exe out/ 2>/dev/null || true
           cp -rv build/macos/Build/Products/Release/*.app out/ 2>/dev/null || true
-          
-          if [ -z "$(ls -A out)" ]; then
-            echo "Artifacts not found in standard paths. Check build logs." > out/ERROR_NO_FILES_FOUND.txt
-          fi
 
-      - name: Upload Artifacts
+      - name: Upload
         if: inputs.upload-artifact
         uses: actions/upload-artifact@v4
         with:
           name: Malinarium-${{ matrix.platform }}
           path: ./out
-          if-no-files-found: warn

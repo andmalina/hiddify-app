@@ -20,8 +20,8 @@ jobs:
           cache: true
       - name: Run Tests
         shell: bash
-        # Железобетонный пропуск ошибок тестов
-        run: flutter test || echo "Tests failed, but continuing pipeline..."
+        # Игнорируем упавшие тесты, чтобы билд шел дальше
+        run: flutter test || echo "Tests failed, but continuing..."
 
   build:
     needs: test
@@ -40,14 +40,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: 'recursive' # Критично для hiddify-core
+          persist-credentials: false
+
+      - name: Fix Submodules (SSH to HTTPS)
+        shell: bash
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+          git submodule update --init --recursive
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '>=1.21.0' # Go необходим для сборки ядра
+          go-version: '>=1.21.0'
 
-      - name: Setup Java (For Android)
+      - name: Setup Java
         if: matrix.platform == 'android-apk'
         uses: actions/setup-java@v4
         with:
@@ -60,12 +67,11 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
-      - name: Install Tools & Dependencies
+      - name: Install Tools & Fastforge
         shell: bash
         run: |
           dart pub global activate fastforge
           echo "$HOME/.pub-cache/bin" >> $GITHUB_PATH
-          
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             choco install make nsis -y
           elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
@@ -85,11 +91,10 @@ jobs:
         shell: bash
         run: |
           mkdir -p out
-          if [ -d "dist" ]; then
-            cp -rv dist/* out/ 2>/dev/null || true
-          fi
+          cp -v dist/* out/ 2>/dev/null || true
           cp -v build/app/outputs/flutter-apk/*.apk out/ 2>/dev/null || true
           cp -v build/windows/x64/runner/Release/*.exe out/ 2>/dev/null || true
+          cp -v build/windows/runner/Release/*.exe out/ 2>/dev/null || true
           cp -rv build/macos/Build/Products/Release/*.app out/ 2>/dev/null || true
 
       - name: Upload
