@@ -23,7 +23,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-# Добавляем этот блок, чтобы убрать предупреждение о Node.js 20
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -31,7 +30,6 @@ jobs:
   run:
     uses: ./.github/workflows/build.yml
     secrets: inherit
-    # Права доступа для работы с релизами и артефактами
     permissions:
       contents: write
       actions: write
