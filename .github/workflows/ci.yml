@@ -1,4 +1,5 @@
 name: CI
+
 on:
   pull_request:
     paths-ignore:
@@ -9,10 +10,10 @@ on:
       - 'appcast.xml'
   push:
     branches:
-       - main
-       - dev
-       - android-fix-action-bug
-       - new-design-v2 
+      - main
+      - dev
+      - android-fix-action-bug
+      - new-design-v2
     paths-ignore:
       - '**.md'
       - 'docs/**'
@@ -25,10 +26,14 @@ concurrency:
 
 jobs:
   run:
+    # Важно: файл build.yml должен лежать именно по этому пути
     uses: ./.github/workflows/build.yml
     secrets: inherit
-    permissions: write-all
+    permissions:
+      contents: write
+      actions: write
+      pull-requests: write
+      repository-projects: write
     if: "${{!contains(github.event.head_commit.message, 'release: version')}}"
     with:
       upload-artifact: ${{ github.event_name == 'push' }}
-      
