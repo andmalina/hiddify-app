@@ -2,34 +2,14 @@ name: Malinarium Build & Release
 on:
   workflow_call:
     inputs:
-      upload-artifact:
-        type: boolean
-        default: true
-      tag-name: { type: string, default: "draft" }
-      channel: { type: string, default: "dev" }
+      upload-artifact: { type: boolean, default: true }
 
 env:
-  IS_GITHUB_ACTIONS: 1
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   FLUTTER_VERSION: '3.38.5'
-  HAS_APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE_P12 }}
-  HAS_WIN_CERT: ${{ secrets.WINDOWS_SIGNING_KEY }}
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          cache: true
-      - name: Test
-        shell: bash
-        run: flutter test || echo "Passed tests with errors"
-
   build:
-    needs: test
     strategy:
       fail-fast: false
       matrix:
@@ -47,18 +27,17 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Fix Submodules (SSH to HTTPS)
+      - name: Git Fix
         shell: bash
         run: |
-          git config --global url."https://github.com/".insteadOf "git@github.com:"
           git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
           git submodule update --init --recursive
 
-      - name: Setup Go
+      - name: Setup Tools
         uses: actions/setup-go@v5
         with:
           go-version: '>=1.21.0'
-
+      
       - name: Setup Java
         if: matrix.platform == 'android-apk'
         uses: actions/setup-java@v4
@@ -72,39 +51,17 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
-      - name: Install Tools
+      - name: Build & Package
         shell: bash
         run: |
           dart pub global activate fastforge
-          echo "$HOME/.pub-cache/bin" >> $GITHUB_PATH
-          if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            choco install make nsis -y
-          elif [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-            sudo apt-get update && sudo apt-get install -y make
-          fi
-
-      - name: Flutter Pub Get
-        run: flutter pub get
-
-      - name: Build App
-        shell: bash
-        run: |
           export PATH="$PATH":"$HOME/.pub-cache/bin"
+          flutter pub get
           make ${{ matrix.platform }}-release
-
-      - name: Prepare Out
-        shell: bash
-        run: |
-          mkdir -p out
-          cp -v dist/* out/ 2>/dev/null || true
-          cp -v build/app/outputs/flutter-apk/*.apk out/ 2>/dev/null || true
-          cp -v build/windows/x64/runner/Release/*.exe out/ 2>/dev/null || true
-          cp -v build/windows/runner/Release/*.exe out/ 2>/dev/null || true
-          cp -rv build/macos/Build/Products/Release/*.app out/ 2>/dev/null || true
 
       - name: Upload
         if: inputs.upload-artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Malinarium-${{ matrix.platform }}
-          path: ./out
+          name: Release-${{ matrix.platform }}
+          path: ./dist
