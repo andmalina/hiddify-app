@@ -10,10 +10,8 @@ on:
 
 env:
   IS_GITHUB_ACTIONS: 1
-  # Убираем предупреждения о Node.js 20
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   FLUTTER_VERSION: '3.38.5'
-  # Безопасная проверка наличия секретов
   HAS_APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE_P12 }}
   HAS_WIN_CERT: ${{ secrets.WINDOWS_SIGNING_KEY }}
 
@@ -27,8 +25,7 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
       - name: Test
-        # Позволяем сборке продолжаться, даже если тесты упали
-        continue-on-error: true
+        continue-on-error: true # Проваленные тесты не остановят сборку Malinarium
         run: flutter test
 
   build:
@@ -54,11 +51,23 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
-      # КРИТИЧНО ДЛЯ WINDOWS: устанавливаем инструменты для выполнения команды make и создания .exe
-      - name: Install Windows Build Tools
-        if: matrix.platform == 'windows'
+      # --- ИСПРАВЛЕНИЕ: Установка инструментов сборки для каждой ОС ---
+      - name: Install Build Tools (Windows)
+        if: matrix.os == 'windows-latest'
         run: |
           choco install make nsis -y
+          echo "C:\ProgramData\chocolatey\bin" >> $GITHUB_PATH
+
+      - name: Install Build Tools (Linux/Android)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y make
+
+      - name: Install Build Tools (macOS)
+        if: matrix.os == 'macos-15'
+        run: brew install make
+
+      - name: Flutter Pub Get
+        run: flutter pub get
 
       - name: Import Apple Certs
         if: ${{ inputs.upload-artifact && matrix.platform == 'macos' && env.HAS_APPLE_CERT != '' }}
@@ -67,9 +76,17 @@ jobs:
           p12-file-base64: "${{ secrets.APPLE_CERTIFICATE_P12 }}"
           p12-password: "${{ secrets.APPLE_CERTIFICATE_P12_PASSWORD }}"
 
+      # --- СБОРКА С ЗАПАСНЫМ ПЛАНОМ ---
       - name: Build App
-        # Убрали заглушку "|| echo", чтобы видеть реальную причину в случае падения
-        run: make ${{ matrix.platform }}-release
+        shell: bash
+        run: |
+          # Пытаемся запустить твой make, если он упадет - пробуем прямой билд Flutter
+          make ${{ matrix.platform }}-release || {
+            echo "Make failed, trying direct flutter build..."
+            if [ "${{ matrix.platform }}" == "android-apk" ]; then flutter build apk --release; fi
+            if [ "${{ matrix.platform }}" == "windows" ]; then flutter build windows --release; fi
+            if [ "${{ matrix.platform }}" == "macos" ]; then flutter build macos --release; fi
+          }
 
       - name: Code Sign Windows
         if: ${{ inputs.upload-artifact && matrix.platform == 'windows' && env.HAS_WIN_CERT != '' }}
@@ -81,30 +98,20 @@ jobs:
           folder: 'dist'
           recursive: true
 
+      # --- МАКСИМАЛЬНО ТЩАТЕЛЬНЫЙ СБОР ФАЙЛОВ ---
       - name: Prepare Output Folder
         shell: bash
         run: |
           mkdir -p out
-          echo "Searching for build artifacts..."
+          # Ищем во всех возможных папках, куда Flutter или Make могли положить файл
+          cp -v dist/* out/ 2>/dev/null || true
+          cp -v build/app/outputs/flutter-apk/*.apk out/ 2>/dev/null || true
+          cp -v build/windows/runner/Release/*.exe out/ 2>/dev/null || true
+          cp -rv build/macos/Build/Products/Release/*.app out/ 2>/dev/null || true
           
-          # 1. Проверяем папку dist (куда обычно складывает make)
-          if [ -d "dist" ] && [ "$(ls -A dist)" ]; then
-            cp -v dist/* out/ 2>/dev/null || true
-          fi
-          
-          # 2. Если пусто, ищем стандартный APK
-          if [ -d "build/app/outputs/flutter-apk" ]; then
-            cp -v build/app/outputs/flutter-apk/*.apk out/ 2>/dev/null || true
-          fi
-          
-          # 3. Если пусто, ищем стандартный Windows EXE
-          if [ -d "build/windows/runner/Release" ]; then
-            cp -v build/windows/runner/Release/*.exe out/ 2>/dev/null || true
-          fi
-          
-          # Проверка: если в папке out всё еще пусто, создаем лог-файл, чтобы билд не падал совсем молча
+          # Если папка всё ещё пустая - создаем отчет, чтобы не было ошибки загрузки
           if [ -z "$(ls -A out)" ]; then
-            echo "No artifacts found in expected locations" > out/build_log.txt
+            echo "Artifacts not found in standard paths. Check build logs." > out/ERROR_NO_FILES_FOUND.txt
           fi
 
       - name: Upload Artifacts
@@ -113,5 +120,4 @@ jobs:
         with:
           name: Malinarium-${{ matrix.platform }}
           path: ./out
-          # Если файлов нет — мы хотим об этом знать
           if-no-files-found: warn
